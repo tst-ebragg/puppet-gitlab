@@ -9,17 +9,16 @@ class gitlab (
     $port        = 80,
 ) {
     if $::osfamily == 'RedHat' and $::operatingsystem != 'Fedora' {
-        include epel
+#        include epel
     }
 
-    Class['gitlab::users']  -> Class['gitlab::shell']
     Class['gitlab::gitlab'] -> Class['gitlab::nginx']
+    Class['gitlab::gitlab'] -> Class['gitlab::gitlab-shell']
 
     include ::nginx
     include gitlab::users
     include gitlab::ruby
     include gitlab::redis
-    include gitlab::shell
     class    { 'gitlab::nginx':
         vhost => $vhost,
     }
@@ -34,6 +33,8 @@ class gitlab (
         }
     }
 
+    class { 'gitlab::gitlab-shell': }
+
     class { 'gitlab::gitlab':
         db_type     => $db_type,
         db_name     => $db_name,
@@ -44,7 +45,6 @@ class gitlab (
         port        => $port,
         require     => [
             Class['gitlab::users'],
-            Class['gitlab::shell'],
         ]
     }
 }

@@ -12,10 +12,17 @@ class gitlab::gitlab(
         path        => '/home/git/gitlab',
         provider    => git,
         source      => 'https://github.com/gitlabhq/gitlabhq.git',
-        revision    => '5-3-stable',
+        revision    => '6-0-stable',
         owner       => 'git',
         group       => 'git',
         require     => User['git'],
+    }
+
+    file { '/home/git/gitlab-satellites':
+      ensure    => directory,
+      owner     => 'git',
+      group     => 'git',
+      before    => File['database.yml'],
     }
 
     file { 'gitlab.yml':
@@ -25,6 +32,17 @@ class gitlab::gitlab(
         group       => 'git',
         content     => template('gitlab/gitlab.yml.erb'),
         notify      => Service['gitlab'],
+        require     => Vcsrepo['gitlab'],
+    }
+
+    file { 'unicorn.rb':
+	path        => '/home/git/gitlab/config/unicorn.rb',
+	ensure      => file,
+	owner       => 'git',
+        group       => 'git',
+        content     => template('gitlab/unicorn.rb.erb'),
+        notify      => Service['gitlab'],
+        require     => Vcsrepo['gitlab'],
     }
 
     file { 'database.yml':
@@ -33,7 +51,24 @@ class gitlab::gitlab(
         owner       => 'git',
         group       => 'git',
         content     => template('gitlab/database.yml.erb'),
+        require     => Vcsrepo['gitlab'],
     }
+    file { 'puma.rb':
+        path        => '/home/git/gitlab/config/puma.rb',
+        ensure      => file,
+        owner       => 'git',
+        group       => 'git',
+        content     => template('gitlab/puma.rb.erb'),
+        require     => Vcsrepo['gitlab'],
+    }
+    file { '/home/git/repositories':
+      ensure    => directory,
+      owner     => 'git',
+      group     => 'git',
+      before    => Service['gitlab'],
+    }
+
+    
 
     if $db_type == 'mysql' {
         if !defined(Package['mysql-devel']) {
@@ -59,13 +94,41 @@ class gitlab::gitlab(
     }
 
     package { 'charlock_holmes':
-        ensure      => installed,
-        provider    => gem,
+#        ensure      => installed,
+        provider    => rvm_gem,
+        ensure      => '0.6.9',
         require     => [
+            Package['bundler'],
             Package['libicu-devel'],
             Class['gitlab::ruby'],
         ]
     }
+    package { 'psych':
+      ensure     => installed,
+      provider   => rvm_gem,
+      require     => [
+        Package['libicu-devel'],
+        Class['gitlab::ruby'],
+      ]
+    }
+    package { 'bundler':
+      ensure     => latest,
+      provider   => rvm_gem,
+      require     => [
+        Class['gitlab::ruby'],
+      ]
+    }
+    rvm_gem { 'ruby-1.9.3-p392@global/bundler':
+      ensure    => present,
+      require   => Rvm_system_ruby['ruby-1.9.3'],
+    }
+    exec { 'gem-bundler':
+      command      => "/usr/local/rvm/rubies/ruby-1.9.3-p392/bin/gem install bundler",
+      cwd          => "/home/git/gitlab",
+      creates      => '/usr/local/rvm/gems/ruby-1.9.3-p392/bin/bundler',
+      before       => Package['bundler'],
+    }
+    
     #Quick Fix to bundle the right requirements
     if $db_type == 'mysql' {
         $db_require = 'mysql-devel'
@@ -75,50 +138,43 @@ class gitlab::gitlab(
         $db_require = 'postgresql-devel'
         $db_without = 'mysql'
     }
-    # TODO: Work out why this only works on the second puppet run
+    # TODO: Need to install bundler using the gem from the rvm install of ruby.
+    # Currently have to log in as root and do gem install bundler.
     # TODO: Remove rvm paths so that this works when ruby version changes
     exec { 'bundle-install':
-        command     => "/usr/local/rvm/gems/ruby-1.9.3-p448@global/bin/bundle install --deployment --without development test ${db_without}",
+        command     => "/usr/local/rvm/gems/ruby-1.9.3-p392/bin/bundle install --deployment --without development test ${db_without}",
         cwd         => '/home/git/gitlab',
         user        => 'git',
         require     => [
             Class['gitlab::ruby'],
             Vcsrepo['gitlab'],
             Package['charlock_holmes'],
+            Package['bundler'],
             Package[$db_require],
             File['gitlab.yml'],
+            Exec['gem-bundler'],
         ],
-        path        => '/usr/local/rvm/gems/ruby-1.9.3-p448/bin:/usr/local/rvm/gems/ruby-1.9.3-p448@global/bin:/usr/local/rvm/rubies/ruby-1.9.3-p448/bin:/usr/local/rvm/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin',
+        path        => '/usr/local/rvm/gems/ruby-1.9.3-p392@global/bin:/usr/local/rvm/rubies/ruby-1.9.3-p392/bin:/usr/local/rvm/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin',
         logoutput   => on_failure,
         creates     => '/home/git/gitlab/.bundle/config',
     }
 
+    # TODO: This script requires input to confirm db setup. Currently have to
+    # manually edit /home/gitlab/gitlab/lib/tasks/setup.rake to remove it.
+    # Then you have to delete database.yml so that this is re-run.
     exec { 'gitlab:setup':
-        command     => '/usr/local/rvm/gems/ruby-1.9.3-p448@global/bin/bundle exec rake gitlab:setup RAILS_ENV=production',
+        command     => '/usr/local/rvm/gems/ruby-1.9.3-p392/bin/bundle exec rake gitlab:setup RAILS_ENV=production',
         cwd         => '/home/git/gitlab',
-        environment => 'force=yes',
         user        => 'git',
         refreshonly => true,
         subscribe   => File['database.yml'],
-        path        => '/usr/local/rvm/gems/ruby-1.9.3-p448/bin:/usr/local/rvm/gems/ruby-1.9.3-p448@global/bin:/usr/local/rvm/rubies/ruby-1.9.3-p448/bin:/usr/local/rvm/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin',
+        path        => '/usr/local/rvm/gems/ruby-1.9.3-p392@global/bin:/usr/local/rvm/rubies/ruby-1.9.3-p392/bin:/usr/local/rvm/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin',
         logoutput   => on_failure,
         require     => [
             User['git'],
             Class['gitlab::ruby'],
             Vcsrepo['gitlab'],
-            Exec['bundle-install']
-        ],
-    }
-
-    file { 'puma.rb':
-        path        => '/home/git/gitlab/config/puma.rb',
-        ensure      => file,
-        owner       => git,
-        group       => git,
-        source      => '/home/git/gitlab/config/puma.rb.example',
-        require     => [
-            User['git'],
-            Vcsrepo['gitlab'],
+            Exec['bundle-install'],
         ],
     }
 
@@ -132,33 +188,16 @@ class gitlab::gitlab(
     }
 
     file { '/home/git/gitlab/tmp/sockets':
-        ensure      => directory,
-        owner       => 'git',
-        group       => 'git',
-        mode        => 0755,
-        require     => Vcsrepo['gitlab'],
+      ensure    => directory,
+      owner     => 'git',
+      group     => 'git',
+      mode      => 0755,
     }
-
-    file { '/home/git/gitlab/public/uploads':
-        ensure      => directory,
-        owner       => 'git',
-        group       => 'git',
-        mode        => 0755,
-        require     => Vcsrepo['gitlab'],
-    }
-
-    file { '/home/git/gitlab-satellites':
-        ensure      => directory,
-        owner       => 'git',
-        group       => 'git',
-        mode        => 0755,
-        before      => Service['gitlab'],
-    }
-
     service { 'gitlab':
         ensure  => running,
         enable  => true,
         require => [
+            File['/home/git/gitlab/tmp/sockets'],
             File['gitlab-init'],
             Exec['gitlab:setup'],
         ]

@@ -20,10 +20,4 @@ class gitlab::nginx(
         vhost               => "$vhost",
         proxy_read_timeout  => 300,
     }
-
-    # remove default vhost so that it doesn't override the gitlab one
-    file { '/etc/nginx/conf.d/default.conf':
-        ensure  => absent,
-        notify  => Service['nginx'],
-    }
 }

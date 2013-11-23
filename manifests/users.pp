@@ -1,7 +1,7 @@
 class gitlab::users {
     user { 'git':
         ensure      => present,
-        comment     => 'Git Version Control',
+        comment     => 'GitLab CI',
         system      => true,
         managehome  => true,
     }
