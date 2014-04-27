@@ -4,6 +4,10 @@ Puppet GitLab module
 
 Installs GitLab 6.5. Tested on CentOS 6.5
 
+Vagrant / Virtualbox
+--------------
+Built and tested using Vagrant 1.5.4 and Virtualbox 4.3.10
+
 Cloning / Submodules
 --------------
 This repo uses submodules (/modules) which also need to be cloned. After cloning this repo, change into your top-level directory and be sure to run:

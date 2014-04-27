@@ -10,7 +10,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # please see the online documentation at vagrantup.com.
 
   # Every Vagrant virtual environment requires a box to build off of.
-  config.vm.box = "centos65-x86_64-puppet"
+  # config.vm.box = "centos65-x86_64-puppet"
+  config.vm.box = "puppetlabs/centos-6.5-64-puppet"
 
   config.vm.provider "virtualbox" do |v|
     v.memory = 2048
