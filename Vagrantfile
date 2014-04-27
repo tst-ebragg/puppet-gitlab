@@ -1,7 +1,10 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-Vagrant::Config.run do |config|
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+#
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # All Vagrant configuration is done here. The most common configuration
   # options are documented and commented below. For a complete reference,
   # please see the online documentation at vagrantup.com.
@@ -9,39 +12,50 @@ Vagrant::Config.run do |config|
   # Every Vagrant virtual environment requires a box to build off of.
   config.vm.box = "centos65-x86_64-puppet"
 
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 2048
+    v.cpus = 2
+  end
+
   # The url from where the 'config.vm.box' box will be fetched if it
   # doesn't already exist on the user's system.
   # config.vm.box_url = "https://github.com/2creatives/vagrant-centos/releases/download/v6.5.1/centos65-x86_64-20131205.box"
 
   # Boot with a GUI so you can see the screen. (Default is headless)
   # config.vm.boot_mode = :gui
-
+  
   # Assign this VM to a host-only network IP, allowing you to access it
   # via the IP. Host-only networks can talk to the host machine as well as
   # any other machines on the same network, but cannot be accessed (through this
   # network interface) by any external networks.
-  # config.vm.network :hostonly, "192.168.33.12"
-
+  # config.vm.network :hostonly, ip: "192.168.33.12"
+  config.vm.network "private_network", ip: "192.168.33.12"
+  
   # Assign this VM to a bridged network, allowing you to connect directly to a
   # network using the host's network device. This makes the VM appear as another
   # physical device on your network.
-  # fconfig.vm.network :bridged
+  # config.vm.network :bridged
 
   # Forward a port from the guest to the host, which allows for outside
   # computers to access the VM, whereas host only networking does not.
-  config.vm.forward_port 80, 8085
-
+  # config.vm.forward_port 80, 8085
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+  config.vm.network "forwarded_port", guest: 8085, host: 8085
+ 
+  
   # Share an additional folder to the guest VM. The first argument is
   # an identifier, the second is the path on the guest to mount the
   # folder, and the third is the path on the host to the actual folder.
-  config.vm.share_folder "gitlab", "/srv/puppet/modules/gitlab", ".", :nfs => true
-  config.vm.share_folder "epel", "/srv/puppet/modules/epel", "modules/epel", :nfs => true
-  config.vm.share_folder "rvm", "/srv/puppet/modules/rvm", "modules/rvm", :nfs => true
-  config.vm.share_folder "mysql", "/srv/puppet/modules/mysql", "modules/mysql", :nfs => true
-  config.vm.share_folder "vcsrepo", "/srv/puppet/modules/vcsrepo", "modules/vcsrepo", :nfs => true
-  config.vm.share_folder "nginx", "/srv/puppet/modules/nginx", "modules/nginx", :nfs => true
-  config.vm.share_folder "stdlib", "/srv/puppet/modules/stdlib", "modules/stdlib", :nfs => true
+  config.vm.synced_folder ".", "/srv/puppet/modules/gitlab"
+  config.vm.synced_folder "modules/epel", "/srv/puppet/modules/epel"
+  config.vm.synced_folder "modules/rvm", "/srv/puppet/modules/rvm"
+  config.vm.synced_folder "modules/mysql", "/srv/puppet/modules/mysql"
+  config.vm.synced_folder "modules/vcsrepo", "/srv/puppet/modules/vcsrepo"
+  config.vm.synced_folder "modules/nginx", "/srv/puppet/modules/nginx"
+  config.vm.synced_folder "modules/stdlib", "/srv/puppet/modules/stdlib"
 
+  #config.vm.synced_folder "../data", "/vagrant_data"
+  
   # Enable provisioning with Puppet stand alone.  Puppet manifests
   # are contained in a directory path relative to this Vagrantfile.
   # You will need to create the manifests directory and a manifest in

@@ -1,9 +1,15 @@
-Puppet GitLab module (DEPRECATED)
+Puppet GitLab module
 ==============
+(WORK IN PROGRESS)
 
-Installs GitLab 5.3. Tested on CentOS 6.
+Installs GitLab 6.5. Tested on CentOS 6.5
 
-I now consider this module deprecated due to lack of time in maintaining this. I'd recommend [Bitnami](http://bitnami.com/stack/gitlab) instead if you want to be able to set up Gitlab easily.
+Cloning / Submodules
+--------------
+This repo uses submodules (/modules) which also need to be cloned. After cloning this repo, change into your top-level directory and be sure to run:
+
+git submodule update --init --recursive
+
 
 Upgrading
 --------------
